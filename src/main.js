@@ -443,34 +443,42 @@ function addChildForm(parentId) {
 function makeSortable(list, onDone) {
   list.querySelectorAll(":scope > .item > .row > .handle").forEach((handle) => {
     handle.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
       e.preventDefault();
       const item = handle.closest(".item");
       const before = ids(list);
       item.classList.add("dragging");
-      handle.setPointerCapture(e.pointerId);
       state.editing = true;
 
+      // 動きは window で受ける。つまみで受けると、行を DOM の中で動かした時点で
+      // WebKit がつかみを外し、離した合図が届かずドラッグ中のまま固まるため
       const move = (ev) => {
         const others = [...list.querySelectorAll(":scope > .item:not(.dragging)")];
         const next = others.find((o) => {
           const r = o.getBoundingClientRect();
           return ev.clientY < r.top + r.height / 2;
         });
-        if (next) list.insertBefore(item, next);
-        else if (others.length) others[others.length - 1].after(item);
+        if (next) {
+          if (item.nextElementSibling !== next) list.insertBefore(item, next);
+        } else if (others.length) {
+          const last = others[others.length - 1];
+          if (last.nextElementSibling !== item) last.after(item);
+        }
       };
       const up = () => {
-        handle.removeEventListener("pointermove", move);
-        handle.removeEventListener("pointerup", up);
-        handle.removeEventListener("pointercancel", up);
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointercancel", up);
+        window.removeEventListener("blur", up);
         item.classList.remove("dragging");
         state.editing = false;
         const after = ids(list);
         if (after.join() !== before.join()) onDone(after);
       };
-      handle.addEventListener("pointermove", move);
-      handle.addEventListener("pointerup", up);
-      handle.addEventListener("pointercancel", up);
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+      window.addEventListener("pointercancel", up);
+      window.addEventListener("blur", up);
     });
   });
 }
