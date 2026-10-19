@@ -1,0 +1,304 @@
+:root {
+  --paper: #f5f0e4;
+  --paper-edge: #ebe3d1;
+  --rule: #ddd3bd;
+  --ink: #2f2b26;
+  --ink-soft: #7a7266;
+  --ink-faint: #a9a191;
+  --stamp: #b4432f;
+  --font: "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif;
+  --line: 56px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--paper-edge);
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* 紙: 少しざらついた地と、罫線 */
+.paper {
+  min-height: 100vh;
+  padding: 28px 28px 80px;
+  background-color: var(--paper);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.3  0 0 0 0 0.2  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--ink);
+}
+
+h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.count {
+  margin: 0;
+  font-size: 15px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.sub {
+  margin: 36px 0 0;
+  padding-bottom: 6px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--stamp);
+  border-bottom: 1.5px dashed var(--stamp);
+}
+
+.notice {
+  margin: 16px 0 0;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* タスク 1 件 */
+.item {
+  border-bottom: 1px solid var(--rule);
+  background: transparent;
+}
+
+.item.dragging {
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 2px 10px rgba(60, 45, 20, 0.12);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--line);
+  padding: 6px 0;
+}
+
+.handle {
+  flex: none;
+  width: 18px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--ink-faint);
+  cursor: grab;
+  text-align: center;
+  touch-action: none;
+}
+
+.item.dragging .handle {
+  cursor: grabbing;
+}
+
+/* ペンで描いたような四角いチェック欄 */
+.check {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--ink);
+  border-radius: 4px 6px 5px 4px;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  font: 700 20px/1 var(--font);
+  color: var(--ink);
+}
+
+.check.small {
+  width: 22px;
+  height: 22px;
+  font-size: 17px;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  font-size: 22px;
+  line-height: 1.45;
+  word-break: break-word;
+  cursor: default;
+}
+
+.child .title {
+  font-size: 19px;
+}
+
+.done > .row .title {
+  color: var(--ink-faint);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
+.title-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 22px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.55);
+  border: none;
+  border-bottom: 2px solid var(--ink);
+  outline: none;
+  padding: 2px 4px;
+}
+
+.btn {
+  flex: none;
+  border: 1.5px solid var(--ink-soft);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-soft);
+  font: 13px/1 var(--font);
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.btn.stamp {
+  color: var(--stamp);
+  border-color: var(--stamp);
+}
+
+.btn.ghost {
+  border-color: transparent;
+  padding: 6px 6px;
+  font-size: 16px;
+}
+
+/* 子タスク */
+.children {
+  list-style: none;
+  margin: 0 0 8px 46px;
+  padding: 0;
+}
+
+.child {
+  border-bottom: 1px dashed var(--rule);
+}
+
+.child:last-child {
+  border-bottom: none;
+}
+
+.child .row {
+  min-height: 46px;
+}
+
+.add-child input,
+.add input {
+  width: 100%;
+  font: inherit;
+  font-size: 19px;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed var(--ink-faint);
+  outline: none;
+  padding: 10px 2px;
+}
+
+.add input {
+  font-size: 20px;
+  margin-top: 8px;
+}
+
+.add input::placeholder,
+.add-child input::placeholder {
+  color: var(--ink-faint);
+}
+
+.list-tomorrow .title {
+  color: var(--ink-soft);
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 14px;
+  max-width: calc(100% - 32px);
+}
+
+/* 右クリックのメニュー */
+.menu {
+  position: fixed;
+  z-index: 10;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  min-width: 140px;
+  background: #fbf8f0;
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+  box-shadow: 2px 3px 0 rgba(47, 43, 38, 0.18);
+}
+
+.menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font: 16px/1 var(--font);
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.menu button:hover {
+  background: var(--paper-edge);
+}
+
+/* 親タスクの「＋」: 行にマウスを乗せたときだけ見せる */
+.add-sub {
+  flex: none;
+  visibility: hidden;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  font: 24px/1 var(--font);
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.row:hover > .add-sub {
+  visibility: visible;
+}
+
+.add-sub:hover {
+  color: var(--ink);
+}
