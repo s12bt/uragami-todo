@@ -122,7 +122,7 @@ const actions = {
   rename: (id, title) => update(() => {
     findTask(id).task.title = title;
   }),
-  removeChild: (id) => update(() => {
+  remove: (id) => update(() => {
     const { list, task } = findTask(id);
     list.splice(list.indexOf(task), 1);
   }),
@@ -163,7 +163,6 @@ function render() {
 
   if (!doc) {
     $("date").textContent = "今日のこと";
-    $("count").textContent = "";
     showNotice(`まだタスクがありません。下の「＋」から書き始めると、次の場所に保存します。\n${state.path}`);
     $("tomorrow-section").hidden = true;
     return;
@@ -173,8 +172,6 @@ function render() {
 
   const todayTasks = doc.tasks.filter((t) => !t.tomorrow);
   const tomorrowTasks = doc.tasks.filter((t) => t.tomorrow);
-  const left = todayTasks.filter((t) => !t.done).length;
-  $("count").textContent = todayTasks.length ? `のこり ${left} / ${todayTasks.length}` : "";
 
   if (todayTasks.length === 0) showNotice("今日のタスクはありません。");
   else showNotice("");
@@ -264,7 +261,11 @@ function taskItem(task) {
     ]),
   );
   // 終わったものは明日に回さない
-  if (!task.done) onMenu(li.firstChild, [["明日に回す", () => actions.tomorrow(task.id)]]);
+  onMenu(li.firstChild, [
+    // 終わったものは明日に回さない
+    ...(task.done ? [] : [["明日に回す", () => actions.tomorrow(task.id)]]),
+    ["削除", () => deleteTask(task)],
+  ]);
 
   const children = el("ul", { class: "children" });
   task.children.forEach((c) => children.append(childItem(c)));
@@ -283,14 +284,56 @@ function childItem(task) {
       titleNode(task),
     ]),
   );
-  onMenu(li.firstChild, [["削除", () => actions.removeChild(task.id)]]);
+  onMenu(li.firstChild, [["削除", () => actions.remove(task.id)]]);
   return li;
 }
 
 function tomorrowItem(task) {
   const row = el("div", { class: "row" }, [el("span", { class: "title" }, [task.title])]);
-  onMenu(row, [["今日に戻す", () => actions.today(task.id)]]);
+  onMenu(row, [
+    ["今日に戻す", () => actions.today(task.id)],
+    ["削除", () => deleteTask(task)],
+  ]);
   return el("li", { class: "item", "data-id": task.id }, [row]);
+}
+
+// 子タスクがあるときだけ、一緒に消えることを確かめてから消す
+async function deleteTask(task) {
+  const n = task.children.length;
+  if (n && !(await confirmDialog(`「${task.title}」の子タスク ${n} 件も一緒に削除されます。続けますか？`, "削除"))) return;
+  actions.remove(task.id);
+}
+
+// ---------- 確認のダイアログ ----------
+
+function confirmDialog(message, okLabel) {
+  return new Promise((resolve) => {
+    state.editing = true;
+    const close = (ok) => {
+      state.editing = false;
+      overlay.remove();
+      document.removeEventListener("keydown", onKey, true);
+      resolve(ok);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close(false);
+      }
+    };
+    const cancel = el("button", { class: "btn", onclick: () => close(false) }, ["キャンセル"]);
+    const ok = el("button", { class: "btn stamp", onclick: () => close(true) }, [okLabel]);
+    const overlay = el("div", { class: "overlay", onpointerdown: (e) => e.target === overlay && close(false) }, [
+      el("div", { class: "dialog", role: "alertdialog" }, [
+        el("p", { class: "dialog-text" }, [message]),
+        el("div", { class: "dialog-actions" }, [cancel, ok]),
+      ]),
+    ]);
+    document.body.append(overlay);
+    document.addEventListener("keydown", onKey, true);
+    // 誤って消さないよう、最初はキャンセルを選んでおく
+    cancel.focus();
+  });
 }
 
 // ---------- 右クリックのメニュー ----------

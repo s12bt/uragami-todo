@@ -49,13 +49,6 @@ h1 {
   letter-spacing: 0.04em;
 }
 
-.count {
-  margin: 0;
-  font-size: 15px;
-  color: var(--ink-soft);
-  white-space: nowrap;
-}
-
 .sub {
   margin: 36px 0 0;
   padding-bottom: 6px;
@@ -301,4 +294,49 @@ h1 {
 
 .add-sub:hover {
   color: var(--ink);
+}
+
+/* 確認のダイアログ */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(47, 43, 38, 0.25);
+}
+
+.dialog {
+  width: 100%;
+  max-width: 340px;
+  padding: 20px 20px 16px;
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+  box-shadow: 3px 4px 0 rgba(47, 43, 38, 0.2);
+}
+
+.dialog-text {
+  margin: 0 0 18px;
+  font-size: 16px;
+  line-height: 1.7;
+  word-break: break-word;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.dialog-actions .btn {
+  font-size: 14px;
+  padding: 8px 14px;
+}
+
+.dialog-actions .btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
