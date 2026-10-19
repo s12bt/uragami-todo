@@ -108,26 +108,32 @@ function update(fn) {
   save();
 }
 
+// id のタスクがあるときだけ fn を当てて保存する。
+// メニューやダイアログを開いている間に外で消えていたら、何もしない
+function updateTask(id, fn) {
+  const hit = state.doc && findTask(id);
+  if (!hit) return render();
+  update(() => fn(hit.task, hit.list));
+}
+
 const actions = {
-  toggle: (id) => update(() => {
-    const { task } = findTask(id);
+  toggle: (id) => updateTask(id, (task) => {
     task.done = !task.done;
   }),
-  tomorrow: (id) => update(() => {
-    findTask(id).task.tomorrow = true;
+  tomorrow: (id) => updateTask(id, (task) => {
+    task.tomorrow = true;
   }),
-  today: (id) => update(() => {
-    findTask(id).task.tomorrow = false;
+  today: (id) => updateTask(id, (task) => {
+    task.tomorrow = false;
   }),
-  rename: (id, title) => update(() => {
-    findTask(id).task.title = title;
+  rename: (id, title) => updateTask(id, (task) => {
+    task.title = title;
   }),
-  remove: (id) => update(() => {
-    const { list, task } = findTask(id);
+  remove: (id) => updateTask(id, (task, list) => {
     list.splice(list.indexOf(task), 1);
   }),
-  addChild: (parentId, title) => update(() => {
-    findTask(parentId).task.children.push({ id: newId(), title, done: false, children: [] });
+  addChild: (parentId, title) => updateTask(parentId, (task) => {
+    task.children.push({ id: newId(), title, done: false, children: [] });
   }),
   addTask: (title) => update(() => {
     // ファイルがまだ無いときは、ここで作り始める
@@ -141,14 +147,14 @@ const actions = {
   // 今日の並びを入れ替える。明日やるものは後ろにまとめる
   reorderToday: (ids) => update(() => {
     const byId = new Map(state.doc.tasks.map((t) => [t.id, t]));
-    const today = ids.map((id) => byId.get(id));
-    const rest = state.doc.tasks.filter((t) => t.tomorrow);
+    const today = ids.map((id) => byId.get(id)).filter(Boolean);
+    const rest = state.doc.tasks.filter((t) => !today.includes(t));
     state.doc.tasks = [...today, ...rest];
   }),
-  reorderChildren: (parentId, ids) => update(() => {
-    const parent = findTask(parentId).task;
+  reorderChildren: (parentId, ids) => updateTask(parentId, (parent) => {
     const byId = new Map(parent.children.map((t) => [t.id, t]));
-    parent.children = ids.map((id) => byId.get(id));
+    const sorted = ids.map((id) => byId.get(id)).filter(Boolean);
+    parent.children = [...sorted, ...parent.children.filter((t) => !sorted.includes(t))];
   }),
 };
 
@@ -260,11 +266,10 @@ function taskItem(task) {
       el("button", { class: "add-sub", title: "子タスクを足す", onclick: () => openAddChild(task.id) }, ["＋"]),
     ]),
   );
-  // 終わったものは明日に回さない
   onMenu(li.firstChild, [
     // 終わったものは明日に回さない
     ...(task.done ? [] : [["明日に回す", () => actions.tomorrow(task.id)]]),
-    ["削除", () => deleteTask(task)],
+    ["削除", () => deleteTask(task.id)],
   ]);
 
   const children = el("ul", { class: "children" });
@@ -292,25 +297,33 @@ function tomorrowItem(task) {
   const row = el("div", { class: "row" }, [el("span", { class: "title" }, [task.title])]);
   onMenu(row, [
     ["今日に戻す", () => actions.today(task.id)],
-    ["削除", () => deleteTask(task)],
+    ["削除", () => deleteTask(task.id)],
   ]);
   return el("li", { class: "item", "data-id": task.id }, [row]);
 }
 
-// 子タスクがあるときだけ、一緒に消えることを確かめてから消す
-async function deleteTask(task) {
-  const n = task.children.length;
-  if (n && !(await confirmDialog(`「${task.title}」の子タスク ${n} 件も一緒に削除されます。続けますか？`, "削除"))) return;
-  actions.remove(task.id);
+// 子タスクがあるときだけ、一緒に消えることを確かめてから消す。
+// 子タスクの数は、メニューを開いた時点ではなく押した時点のデータで数える（その間に外で書き換わることがあるため）
+async function deleteTask(id) {
+  const hit = state.doc && findTask(id);
+  if (!hit) return render();
+  const n = hit.task.children.length;
+  if (n && !(await confirmDialog(`「${hit.task.title}」の子タスク ${n} 件も一緒に削除されます。続けますか？`, "削除"))) return;
+  actions.remove(id);
 }
 
 // ---------- 確認のダイアログ ----------
 
 function confirmDialog(message, okLabel) {
   return new Promise((resolve) => {
+    // 開いている間は裏の画面を操作できなくし、外からの読み直しも止める
+    const paper = document.querySelector(".paper");
+    const wasEditing = state.editing;
     state.editing = true;
+    paper.inert = true;
     const close = (ok) => {
-      state.editing = false;
+      paper.inert = false;
+      state.editing = wasEditing;
       overlay.remove();
       document.removeEventListener("keydown", onKey, true);
       resolve(ok);
@@ -323,9 +336,10 @@ function confirmDialog(message, okLabel) {
     };
     const cancel = el("button", { class: "btn", onclick: () => close(false) }, ["キャンセル"]);
     const ok = el("button", { class: "btn stamp", onclick: () => close(true) }, [okLabel]);
-    const overlay = el("div", { class: "overlay", onpointerdown: (e) => e.target === overlay && close(false) }, [
-      el("div", { class: "dialog", role: "alertdialog" }, [
-        el("p", { class: "dialog-text" }, [message]),
+    // 押した瞬間に閉じると、指を離したときのクリックが下のタスクに届くため、クリックで閉じる
+    const overlay = el("div", { class: "overlay", onclick: (e) => e.target === overlay && close(false) }, [
+      el("div", { class: "dialog", role: "alertdialog", "aria-modal": "true", "aria-describedby": "dialog-text" }, [
+        el("p", { class: "dialog-text", id: "dialog-text" }, [message]),
         el("div", { class: "dialog-actions" }, [cancel, ok]),
       ]),
     ]);
